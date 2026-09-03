@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
         password: body.password,
         email_confirm: true,
         user_metadata: { name: body.name, mobile: body.mobile },
+        app_metadata: { role: "user" },
       });
       if (error) return json({ error: error.message }, 400);
       await admin.from("profiles").update({

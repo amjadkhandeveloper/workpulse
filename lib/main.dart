@@ -9,8 +9,10 @@ import 'data/supabase/app_config.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    await dotenv.load(fileName: 'assets/config.env');
+  } catch (_) {
     await dotenv.load(fileName: 'assets/config.env.example');
-  } catch (_) {}
+  }
 
   if (AppConfig.isConfigured) {
     await Supabase.initialize(

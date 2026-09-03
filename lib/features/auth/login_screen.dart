@@ -25,48 +25,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _register() async {
-    final name = TextEditingController();
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create account'),
-        content: TextField(
-          controller: name,
-          decoration: const InputDecoration(labelText: 'Full name'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Create')),
-        ],
-      ),
-    );
-    if (created != true) return;
-    if (!mounted) return;
-    if (_email.text.trim().isEmpty || _password.text.length < 6 || name.text.trim().isEmpty) {
-      showAppSnack(context, 'Name, email and a 6+ character password are required', error: true);
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      await ref.read(authRepositoryProvider).signUp(
-            email: _email.text,
-            password: _password.text,
-            name: name.text.trim(),
-          );
-      if (mounted) {
-        showAppSnack(
-          context,
-          'Account created. Promote the first admin with SQL: update profiles set role = \'admin\' where email = \'${_email.text.trim()}\';',
-        );
-      }
-    } catch (error) {
-      if (mounted) showAppSnack(context, '$error', error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
@@ -102,7 +60,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: 1.4),
                 ),
                 const SizedBox(height: 8),
-                const Text('Sign in to monitor jobs, people and attendance'),
+                const Text(
+                  'Sign in with the email and password provided by your admin',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 32),
                 IconUnderlineField(
                   icon: Icons.email_outlined,
@@ -122,10 +83,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
                 const SizedBox(height: 32),
                 PrimaryButton(label: 'Login', onPressed: _submit, busy: _busy),
-                TextButton(
-                  onPressed: _busy ? null : _register,
-                  child: const Text('Create account'),
-                ),
               ],
             ),
           ),

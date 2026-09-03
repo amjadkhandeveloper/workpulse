@@ -1,8 +1,30 @@
 -- Work Pulse schema
--- Run in the Supabase SQL editor after creating the project.
+-- Paste this WHOLE file into Supabase: SQL Editor -> New query -> Run.
+-- Safe to run more than once.
+--
+-- After it succeeds:
+-- 1. Authentication -> Providers -> Email: enable Email, turn OFF "Confirm email"
+--    so users can log in immediately with the password the client created.
+-- 2. Authentication -> Users -> Add user: create the client admin
+--    (email + password, Auto Confirm User = ON).
+-- 3. Run:  select public.promote_admin('client@email.com');
+-- 4. Deploy supabase/functions/admin-users so the app can add field users.
+--
+-- No Google / Apple login. Users do not self-register.
+-- The client (admin) creates users in the app; those users only log in.
 
-create extension if not exists "pgcrypto";
+-- gen_random_uuid() is already available on Supabase.
+do $$
+begin
+  create extension if not exists pgcrypto with schema extensions;
+exception
+  when others then
+    raise notice 'pgcrypto extension: %', sqlerrm;
+end $$;
 
+-- ---------------------------------------------------------------------------
+-- Helpers (JWT role, no RLS recursion on profiles)
+-- ---------------------------------------------------------------------------
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -10,12 +32,60 @@ stable
 security definer
 set search_path = public
 as $$
-  select exists (
-    select 1 from public.profiles
-    where id = auth.uid() and role = 'admin'
-  );
+  select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '') = 'admin';
 $$;
 
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to authenticated, service_role;
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, name, mobile, role)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'name', ''),
+    new.raw_user_meta_data->>'mobile',
+    coalesce(new.raw_app_meta_data->>'role', 'user')
+  )
+  on conflict (id) do update
+    set email = excluded.email,
+        name = coalesce(nullif(excluded.name, ''), public.profiles.name),
+        mobile = coalesce(excluded.mobile, public.profiles.mobile);
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+create or replace function public.sync_role_to_jwt()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update auth.users
+  set raw_app_meta_data =
+        coalesce(raw_app_meta_data, '{}'::jsonb)
+        || jsonb_build_object('role', new.role)
+  where id = new.id;
+  return new;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Tables
+-- ---------------------------------------------------------------------------
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
@@ -31,29 +101,12 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  insert into public.profiles (id, email, name, mobile, role)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'name', ''),
-    new.raw_user_meta_data->>'mobile',
-    'user'
-  );
-  return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
+drop trigger if exists on_profile_role_changed on public.profiles;
+create trigger on_profile_role_changed
+  after update of role on public.profiles
+  for each row
+  when (old.role is distinct from new.role)
+  execute procedure public.sync_role_to_jwt();
 
 create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
@@ -96,6 +149,9 @@ create unique index if not exists jobs_one_active_per_user
   on public.jobs (assigned_to)
   where status in ('accepted', 'checked_in') and assigned_to is not null;
 
+create index if not exists jobs_assigned_to_idx on public.jobs (assigned_to);
+create index if not exists jobs_status_idx on public.jobs (status);
+
 create table if not exists public.job_proofs (
   id uuid primary key default gen_random_uuid(),
   job_id uuid not null references public.jobs(id) on delete cascade,
@@ -113,6 +169,8 @@ create table if not exists public.attendance (
   lat double precision,
   lng double precision
 );
+
+create index if not exists attendance_user_at_idx on public.attendance (user_id, at desc);
 
 create table if not exists public.leaves (
   id uuid primary key default gen_random_uuid(),
@@ -139,6 +197,11 @@ create table if not exists public.location_pings (
   job_id uuid references public.jobs(id) on delete set null
 );
 
+create index if not exists location_pings_user_idx on public.location_pings (user_id, recorded_at desc);
+
+-- ---------------------------------------------------------------------------
+-- Row Level Security
+-- ---------------------------------------------------------------------------
 alter table public.profiles enable row level security;
 alter table public.companies enable row level security;
 alter table public.jobs enable row level security;
@@ -148,23 +211,42 @@ alter table public.leaves enable row level security;
 alter table public.location_pings enable row level security;
 
 drop policy if exists profiles_select on public.profiles;
-create policy profiles_select on public.profiles
-  for select to authenticated
-  using (id = auth.uid() or public.is_admin());
-
+drop policy if exists profiles_select_own on public.profiles;
+drop policy if exists profiles_select_admin on public.profiles;
 drop policy if exists profiles_update_self on public.profiles;
+drop policy if exists companies_admin_all on public.companies;
+drop policy if exists companies_read_assigned on public.companies;
+drop policy if exists jobs_admin_all on public.jobs;
+drop policy if exists jobs_user_select on public.jobs;
+drop policy if exists jobs_user_update on public.jobs;
+drop policy if exists proofs_select on public.job_proofs;
+drop policy if exists proofs_insert on public.job_proofs;
+drop policy if exists attendance_select on public.attendance;
+drop policy if exists attendance_insert on public.attendance;
+drop policy if exists leaves_select on public.leaves;
+drop policy if exists leaves_insert on public.leaves;
+drop policy if exists leaves_update_admin on public.leaves;
+drop policy if exists pings_insert on public.location_pings;
+drop policy if exists pings_select on public.location_pings;
+
+create policy profiles_select_own on public.profiles
+  for select to authenticated
+  using (id = auth.uid());
+
+create policy profiles_select_admin on public.profiles
+  for select to authenticated
+  using (public.is_admin());
+
 create policy profiles_update_self on public.profiles
   for update to authenticated
   using (id = auth.uid() or public.is_admin())
   with check (id = auth.uid() or public.is_admin());
 
-drop policy if exists companies_admin_all on public.companies;
 create policy companies_admin_all on public.companies
   for all to authenticated
   using (public.is_admin())
   with check (public.is_admin());
 
-drop policy if exists companies_read_assigned on public.companies;
 create policy companies_read_assigned on public.companies
   for select to authenticated
   using (
@@ -175,98 +257,109 @@ create policy companies_read_assigned on public.companies
     )
   );
 
-drop policy if exists jobs_admin_all on public.jobs;
 create policy jobs_admin_all on public.jobs
   for all to authenticated
   using (public.is_admin())
   with check (public.is_admin());
 
-drop policy if exists jobs_user_select on public.jobs;
 create policy jobs_user_select on public.jobs
   for select to authenticated
-  using (assigned_to = auth.uid() or public.is_admin());
+  using (assigned_to = auth.uid());
 
-drop policy if exists jobs_user_update on public.jobs;
 create policy jobs_user_update on public.jobs
   for update to authenticated
   using (assigned_to = auth.uid())
   with check (assigned_to = auth.uid());
 
-drop policy if exists proofs_select on public.job_proofs;
 create policy proofs_select on public.job_proofs
   for select to authenticated
   using (
     public.is_admin()
-    or exists (select 1 from public.jobs where jobs.id = job_proofs.job_id and jobs.assigned_to = auth.uid())
+    or exists (
+      select 1 from public.jobs
+      where jobs.id = job_proofs.job_id and jobs.assigned_to = auth.uid()
+    )
   );
 
-drop policy if exists proofs_insert on public.job_proofs;
 create policy proofs_insert on public.job_proofs
   for insert to authenticated
   with check (
     public.is_admin()
-    or exists (select 1 from public.jobs where jobs.id = job_proofs.job_id and jobs.assigned_to = auth.uid())
+    or exists (
+      select 1 from public.jobs
+      where jobs.id = job_proofs.job_id and jobs.assigned_to = auth.uid()
+    )
   );
 
-drop policy if exists attendance_select on public.attendance;
 create policy attendance_select on public.attendance
   for select to authenticated
   using (user_id = auth.uid() or public.is_admin());
 
-drop policy if exists attendance_insert on public.attendance;
 create policy attendance_insert on public.attendance
   for insert to authenticated
   with check (user_id = auth.uid() or public.is_admin());
 
-drop policy if exists leaves_select on public.leaves;
 create policy leaves_select on public.leaves
   for select to authenticated
   using (user_id = auth.uid() or public.is_admin());
 
-drop policy if exists leaves_insert on public.leaves;
 create policy leaves_insert on public.leaves
   for insert to authenticated
   with check (user_id = auth.uid());
 
-drop policy if exists leaves_update_admin on public.leaves;
 create policy leaves_update_admin on public.leaves
   for update to authenticated
   using (public.is_admin())
   with check (public.is_admin());
 
-drop policy if exists pings_insert on public.location_pings;
 create policy pings_insert on public.location_pings
   for insert to authenticated
   with check (user_id = auth.uid());
 
-drop policy if exists pings_select on public.location_pings;
 create policy pings_select on public.location_pings
   for select to authenticated
   using (user_id = auth.uid() or public.is_admin());
 
-insert into storage.buckets (id, name, public)
-values ('avatars', 'avatars', true)
-on conflict (id) do nothing;
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to postgres, service_role;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated, service_role;
 
-insert into storage.buckets (id, name, public)
-values ('job-proofs', 'job-proofs', false)
-on conflict (id) do nothing;
+-- ---------------------------------------------------------------------------
+-- Storage
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  insert into storage.buckets (id, name, public)
+  values ('avatars', 'avatars', true)
+  on conflict (id) do update set public = excluded.public;
+
+  insert into storage.buckets (id, name, public)
+  values ('job-proofs', 'job-proofs', false)
+  on conflict (id) do update set public = excluded.public;
+exception
+  when others then
+    raise notice 'Storage buckets skipped: %', sqlerrm;
+end $$;
 
 drop policy if exists avatars_public_read on storage.objects;
-create policy avatars_public_read on storage.objects
-  for select using (bucket_id = 'avatars');
-
 drop policy if exists avatars_write on storage.objects;
+drop policy if exists avatars_update on storage.objects;
+drop policy if exists proofs_read on storage.objects;
+drop policy if exists proofs_write on storage.objects;
+
+create policy avatars_public_read on storage.objects
+  for select
+  using (bucket_id = 'avatars');
+
 create policy avatars_write on storage.objects
   for insert to authenticated
   with check (bucket_id = 'avatars');
 
-drop policy if exists avatars_update on storage.objects;
 create policy avatars_update on storage.objects
   for update to authenticated
   using (bucket_id = 'avatars');
 
-drop policy if exists proofs_read on storage.objects;
 create policy proofs_read on storage.objects
   for select to authenticated
   using (
@@ -279,7 +372,6 @@ create policy proofs_read on storage.objects
     )
   );
 
-drop policy if exists proofs_write on storage.objects;
 create policy proofs_write on storage.objects
   for insert to authenticated
   with check (
@@ -292,17 +384,58 @@ create policy proofs_write on storage.objects
     )
   );
 
+-- ---------------------------------------------------------------------------
+-- Realtime
+-- ---------------------------------------------------------------------------
 do $$
 begin
   begin
     alter publication supabase_realtime add table public.jobs;
-  exception when duplicate_object then null;
+  exception
+    when duplicate_object then null;
+    when others then raise notice 'realtime jobs: %', sqlerrm;
   end;
   begin
     alter publication supabase_realtime add table public.profiles;
-  exception when duplicate_object then null;
+  exception
+    when duplicate_object then null;
+    when others then raise notice 'realtime profiles: %', sqlerrm;
   end;
 end $$;
 
--- After creating your first account:
--- update public.profiles set role = 'admin' where email = 'you@example.com';
+-- ---------------------------------------------------------------------------
+-- Promote the client admin (run once after creating them in Auth > Users)
+-- ---------------------------------------------------------------------------
+create or replace function public.promote_admin(admin_email text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_count int;
+begin
+  update public.profiles
+  set role = 'admin'
+  where lower(email) = lower(admin_email);
+
+  get diagnostics updated_count = row_count;
+
+  update auth.users
+  set raw_app_meta_data =
+        coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('role', 'admin')
+  where lower(email) = lower(admin_email);
+
+  if updated_count = 0 then
+    return 'No profile found for ' || admin_email
+      || '. Create the user first in Authentication > Users.';
+  end if;
+
+  return 'OK. Log out and log in again as ' || admin_email || ' so the admin role is in the session.';
+end;
+$$;
+
+grant execute on function public.promote_admin(text) to postgres, service_role;
+
+-- Example:
+-- select public.promote_admin('client@company.com');

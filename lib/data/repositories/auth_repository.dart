@@ -15,19 +15,6 @@ class AuthRepository {
     await _client.auth.signInWithPassword(email: email.trim(), password: password);
   }
 
-  Future<void> signUp({
-    required String email,
-    required String password,
-    required String name,
-    String? mobile,
-  }) async {
-    await _client.auth.signUp(
-      email: email.trim(),
-      password: password,
-      data: {'name': name, 'mobile': mobile},
-    );
-  }
-
   Future<void> signOut() => _client.auth.signOut();
 
   Future<Profile?> fetchProfile(String userId) async {

@@ -1,43 +1,39 @@
 # Work Pulse
 
-Flutter workforce monitoring app for field jobs, standby attendance, leave, and live location. Two roles: **Admin** and **User**.
+Flutter workforce monitoring app for field jobs, standby attendance, leave, and live location. Two roles: **Admin** (client) and **User** (field staff).
+
+There is no Google/Apple login and no self-registration. The client creates users in the app; staff only log in with that email and password.
 
 ## Setup
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Put your keys in `assets/config.env.example` (or copy it to `assets/config.env.example` and replace the placeholders):
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-3. In the Supabase SQL editor, run [`supabase/schema.sql`](supabase/schema.sql).
-4. Deploy the admin user function:
+2. Put `SUPABASE_URL` and `SUPABASE_ANON_KEY` (anon public) in `assets/config.env` or `assets/config.env.example`.
+3. In **SQL Editor**, paste and run the whole [`supabase/schema.sql`](supabase/schema.sql) file.
+4. **Authentication → Providers → Email**: enable Email. Turn **Confirm email** OFF so new users can log in immediately.
+5. **Authentication → Users → Add user**: create the client admin (email + password, Auto Confirm User on).
+6. In SQL Editor run (use the admin email):
+
+```sql
+select public.promote_admin('client@company.com');
+```
+
+Then log in once in the app, **log out, and log in again** so the admin role is in the session.
+
+7. Deploy the function the admin app uses to create field users:
 
 ```bash
 supabase functions deploy admin-users
 ```
 
-5. Install and run the app:
+8. Run the app:
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-6. Create the first account from the Login screen (**Create account**), then promote it:
-
-```sql
-update public.profiles set role = 'admin' where email = 'you@example.com';
-```
-
-Confirm the email in Auth if your project requires it, or disable email confirmation in Authentication settings while testing.
-
 ## Roles
 
-**Admin:** dashboard counts, user CRUD, companies, job assign/edit, review checkout proofs and mark complete, leave approval, job/attendance CSV reports, live map.
+**Admin:** dashboard, add/edit/delete users, companies, jobs, review checkout proofs, leave approval, reports, live map.
 
-**User:** job summary dashboard, standby in/out, accept/reject/check-in/check-out, 5 photos + signature at checkout, 2-month attendance, leave (last 10 days through next 60 days, max 30 days, half or full day).
-
-Standby rule: if a user is on standby with no active job and a job is assigned, they must **Standby out** before they can **Accept**.
-
-## Live GPS
-
-Location is shared while Standby In or while a job is accepted / checked in. Android uses a foreground notification. iOS uses background location modes already set in `Info.plist`.
+**User:** job summary, standby in/out, accept/reject/check-in/check-out (5 photos + signature), 2-month attendance, leave requests.
