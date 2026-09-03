@@ -23,6 +23,7 @@ class Job {
     this.reviewedBy,
     this.reviewedAt,
     this.checkoutNote,
+    this.clientId,
     required this.createdAt,
     this.company,
     this.assignee,
@@ -47,6 +48,7 @@ class Job {
   final String? reviewedBy;
   final DateTime? reviewedAt;
   final String? checkoutNote;
+  final String? clientId;
   final DateTime createdAt;
   final Company? company;
   final Profile? assignee;
@@ -89,6 +91,7 @@ class Job {
           ? null
           : DateTime.tryParse(map['reviewed_at'].toString()),
       checkoutNote: map['checkout_note'] as String?,
+      clientId: map['client_id'] as String?,
       createdAt: DateTime.tryParse('${map['created_at']}') ?? DateTime.now(),
       company: company,
       assignee: assignee,

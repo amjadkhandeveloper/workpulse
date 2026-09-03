@@ -99,6 +99,10 @@ class _JobFormScreenState extends ConsumerState<JobFormScreen> {
     }
     setState(() => _busy = true);
     try {
+      final session = ref.read(sessionControllerProvider).profile;
+      final users = ref.read(fieldUsersProvider).valueOrNull ?? [];
+      final assignee = users.where((u) => u.id == _assignedTo).firstOrNull;
+      final clientId = session?.isClient == true ? session!.id : assignee?.clientId;
       var companyId = _companyId;
       if (_isNewCompany) {
         final created = await ref.read(companyRepositoryProvider).create(
@@ -109,6 +113,7 @@ class _JobFormScreenState extends ConsumerState<JobFormScreen> {
                 work: _work.text.trim(),
                 contactName: _customer.text.trim(),
                 mobile: _mobile.text.trim(),
+                clientId: clientId,
                 createdAt: DateTime.now(),
               ),
             );
@@ -127,6 +132,7 @@ class _JobFormScreenState extends ConsumerState<JobFormScreen> {
         'start_at': _combine(_date, _start).toUtc().toIso8601String(),
         'end_at': _combine(_date, _end).toUtc().toIso8601String(),
         'assigned_by': SupabaseProvider.client.auth.currentUser?.id,
+        'client_id': ?clientId,
         if (!_editing) 'status': 'pending',
       };
       if (_editing) {

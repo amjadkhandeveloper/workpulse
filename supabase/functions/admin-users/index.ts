@@ -29,11 +29,12 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("id, role")
       .eq("id", user.id)
       .single();
-    if (profile?.role !== "admin") {
-      return json({ error: "Admin only" }, 403);
+    const role = profile?.role as string | undefined;
+    if (role !== "admin" && role !== "client") {
+      return json({ error: "Admin or client only" }, 403);
     }
 
     const admin = createClient(
@@ -42,13 +43,49 @@ Deno.serve(async (req) => {
     );
     const body = await req.json();
 
-    if (body.action === "create") {
+    if (body.action === "create_client") {
+      if (role !== "admin") return json({ error: "Admin only" }, 403);
       const { data, error } = await admin.auth.admin.createUser({
         email: body.email,
         password: body.password,
         email_confirm: true,
         user_metadata: { name: body.name, mobile: body.mobile },
-        app_metadata: { role: "user" },
+        app_metadata: { role: "client" },
+      });
+      if (error) return json({ error: error.message }, 400);
+      await admin.from("profiles").update({
+        name: body.name,
+        mobile: body.mobile,
+        photo_url: body.photo_url ?? null,
+        role: "client",
+        client_id: null,
+      }).eq("id", data.user.id);
+      return json({ id: data.user.id });
+    }
+
+    if (body.action === "create") {
+      let clientId = body.client_id as string | undefined;
+      if (role === "client") {
+        clientId = user.id;
+      } else if (!clientId) {
+        return json({ error: "Select a client for this user" }, 400);
+      }
+
+      const { data: clientRow } = await admin
+        .from("profiles")
+        .select("id, role")
+        .eq("id", clientId)
+        .single();
+      if (!clientRow || clientRow.role !== "client") {
+        return json({ error: "Invalid client" }, 400);
+      }
+
+      const { data, error } = await admin.auth.admin.createUser({
+        email: body.email,
+        password: body.password,
+        email_confirm: true,
+        user_metadata: { name: body.name, mobile: body.mobile },
+        app_metadata: { role: "user", client_id: clientId },
       });
       if (error) return json({ error: error.message }, 400);
       await admin.from("profiles").update({
@@ -56,12 +93,27 @@ Deno.serve(async (req) => {
         mobile: body.mobile,
         photo_url: body.photo_url ?? null,
         role: "user",
+        client_id: clientId,
       }).eq("id", data.user.id);
       return json({ id: data.user.id });
     }
 
     if (body.action === "delete") {
-      const { error } = await admin.auth.admin.deleteUser(body.user_id);
+      const targetId = body.user_id as string;
+      const { data: target } = await admin
+        .from("profiles")
+        .select("id, role, client_id")
+        .eq("id", targetId)
+        .single();
+      if (!target) return json({ error: "User not found" }, 404);
+      if (role === "client") {
+        if (target.role !== "user" || target.client_id !== user.id) {
+          return json({ error: "You can only delete your own users" }, 403);
+        }
+      } else if (target.role === "admin") {
+        return json({ error: "Cannot delete an admin" }, 403);
+      }
+      const { error } = await admin.auth.admin.deleteUser(targetId);
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
     }

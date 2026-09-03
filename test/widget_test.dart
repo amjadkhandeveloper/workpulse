@@ -10,6 +10,13 @@ void main() {
     expect(JobStatus.accepted.label, 'Enroute');
   });
 
+  test('user roles parse from the database', () {
+    expect(UserRoleX.fromDb('admin'), UserRole.admin);
+    expect(UserRoleX.fromDb('client'), UserRole.client);
+    expect(UserRoleX.fromDb('user'), UserRole.user);
+    expect(UserRole.client.db, 'client');
+  });
+
   test('leave span helper stays within 30 days', () {
     final start = DateTime(2026, 1, 1);
     final end = DateTime(2026, 1, 30);

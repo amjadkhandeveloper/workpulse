@@ -61,7 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Sign in with the email and password provided by your admin',
+                  'Sign in with the email and password created for your account',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),

@@ -8,6 +8,7 @@ class Company {
     this.mobile,
     this.lat,
     this.lng,
+    this.clientId,
     required this.createdAt,
   });
 
@@ -19,6 +20,7 @@ class Company {
   final String? mobile;
   final double? lat;
   final double? lng;
+  final String? clientId;
   final DateTime createdAt;
 
   factory Company.fromMap(Map<String, dynamic> map) {
@@ -31,6 +33,7 @@ class Company {
       mobile: map['mobile'] as String?,
       lat: (map['lat'] as num?)?.toDouble(),
       lng: (map['lng'] as num?)?.toDouble(),
+      clientId: map['client_id'] as String?,
       createdAt: DateTime.tryParse('${map['created_at']}') ?? DateTime.now(),
     );
   }
@@ -43,5 +46,6 @@ class Company {
         'mobile': mobile,
         'lat': lat,
         'lng': lng,
+        if (clientId != null) 'client_id': clientId,
       };
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/clients/client_form_screen.dart';
+import '../../features/admin/clients/clients_screen.dart';
 import '../../features/admin/companies/companies_screen.dart';
 import '../../features/admin/companies/company_form_screen.dart';
 import '../../features/admin/dashboard/admin_dashboard_screen.dart';
@@ -48,11 +50,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         case SessionStatus.unauthenticated:
           return loc == '/login' ? null : '/login';
         case SessionStatus.authenticated:
-          final isAdmin = session.isAdmin;
+          final isManager = session.isManager;
           final goingAuth = loc == '/login' || loc == '/intro' || loc == '/splash' || loc == '/setup';
-          if (goingAuth) return isAdmin ? '/admin' : '/user';
-          if (isAdmin && loc.startsWith('/user')) return '/admin';
-          if (!isAdmin && loc.startsWith('/admin')) return '/user';
+          if (goingAuth) return isManager ? '/admin' : '/user';
+          if (isManager && loc.startsWith('/user')) return '/admin';
+          if (!isManager && loc.startsWith('/admin')) return '/user';
+          if (!session.isAdmin && loc.startsWith('/admin/clients')) return '/admin';
           return null;
       }
     },
@@ -65,6 +68,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => AdminShell(child: child),
         routes: [
           GoRoute(path: '/admin', builder: (_, _) => const AdminDashboardScreen()),
+          GoRoute(path: '/admin/clients', builder: (_, _) => const ClientsScreen()),
+          GoRoute(path: '/admin/clients/new', builder: (_, _) => const ClientFormScreen()),
+          GoRoute(
+            path: '/admin/clients/:id',
+            builder: (_, state) => ClientFormScreen(clientId: state.pathParameters['id']),
+          ),
           GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
           GoRoute(path: '/admin/users/new', builder: (_, _) => const UserFormScreen()),
           GoRoute(

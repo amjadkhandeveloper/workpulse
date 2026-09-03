@@ -45,6 +45,9 @@ class SessionState {
   final String? error;
 
   bool get isAdmin => profile?.isAdmin == true;
+  bool get isClient => profile?.isClient == true;
+  bool get isManager => profile?.isManager == true;
+  String? get tenantClientId => isClient ? profile?.id : null;
 }
 
 class SessionController extends StateNotifier<SessionState> {
@@ -149,27 +152,40 @@ final sessionControllerProvider =
 });
 
 final companiesProvider = FutureProvider<List<Company>>((ref) {
-  return ref.watch(companyRepositoryProvider).list();
+  final clientId = ref.watch(sessionControllerProvider).tenantClientId;
+  return ref.watch(companyRepositoryProvider).list(clientId: clientId);
 });
 
 final fieldUsersProvider = FutureProvider<List<Profile>>((ref) {
-  return ref.watch(profileRepositoryProvider).listUsers();
+  final clientId = ref.watch(sessionControllerProvider).tenantClientId;
+  return ref.watch(profileRepositoryProvider).listUsers(clientId: clientId);
+});
+
+final clientsProvider = FutureProvider<List<Profile>>((ref) {
+  return ref.watch(profileRepositoryProvider).listClients();
 });
 
 final adminJobsProvider = FutureProvider<List<Job>>((ref) {
-  return ref.watch(jobRepositoryProvider).listAll();
+  final clientId = ref.watch(sessionControllerProvider).tenantClientId;
+  return ref.watch(jobRepositoryProvider).listAll(clientId: clientId);
 });
 
-final adminLeavesProvider = FutureProvider<List<LeaveRequest>>((ref) {
-  return ref.watch(leaveRepositoryProvider).listAll();
+final adminLeavesProvider = FutureProvider<List<LeaveRequest>>((ref) async {
+  final users = await ref.watch(fieldUsersProvider.future);
+  final clientId = ref.watch(sessionControllerProvider).tenantClientId;
+  return ref.watch(leaveRepositoryProvider).listAll(
+        userIds: clientId == null ? null : users.map((u) => u.id).toSet(),
+      );
 });
 
 final adminStatsProvider = FutureProvider<Map<String, dynamic>>((ref) {
-  return ref.watch(profileRepositoryProvider).dashboardStats();
+  final clientId = ref.watch(sessionControllerProvider).tenantClientId;
+  return ref.watch(profileRepositoryProvider).dashboardStats(clientId: clientId);
 });
 
 final liveUsersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
-  return ref.watch(locationRepositoryProvider).latestByUser();
+  final clientId = ref.watch(sessionControllerProvider).tenantClientId;
+  return ref.watch(locationRepositoryProvider).latestByUser(clientId: clientId);
 });
 
 final userJobsProvider = StreamProvider<List<Job>>((ref) {

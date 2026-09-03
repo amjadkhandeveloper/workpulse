@@ -9,16 +9,16 @@ import '../../../core/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_widgets.dart';
 
-class UserFormScreen extends ConsumerStatefulWidget {
-  const UserFormScreen({super.key, this.userId});
+class ClientFormScreen extends ConsumerStatefulWidget {
+  const ClientFormScreen({super.key, this.clientId});
 
-  final String? userId;
+  final String? clientId;
 
   @override
-  ConsumerState<UserFormScreen> createState() => _UserFormScreenState();
+  ConsumerState<ClientFormScreen> createState() => _ClientFormScreenState();
 }
 
-class _UserFormScreenState extends ConsumerState<UserFormScreen> {
+class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   final _name = TextEditingController();
   final _mobile = TextEditingController();
   final _email = TextEditingController();
@@ -27,9 +27,8 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
   bool _busy = false;
   String? _photoUrl;
   File? _photoFile;
-  String? _clientId;
 
-  bool get _isNew => widget.userId == null;
+  bool get _isNew => widget.clientId == null;
 
   @override
   void initState() {
@@ -38,16 +37,15 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
   }
 
   Future<void> _load() async {
-    final users = await ref.read(profileRepositoryProvider).listUsers();
-    final user = users.where((u) => u.id == widget.userId).firstOrNull;
-    if (user == null || !mounted) return;
+    final clients = await ref.read(profileRepositoryProvider).listClients();
+    final client = clients.where((c) => c.id == widget.clientId).firstOrNull;
+    if (client == null || !mounted) return;
     setState(() {
-      _name.text = user.name;
-      _mobile.text = user.mobile ?? '';
-      _email.text = user.email;
-      _active = user.isActive;
-      _photoUrl = user.photoUrl;
-      _clientId = user.clientId;
+      _name.text = client.name;
+      _mobile.text = client.mobile ?? '';
+      _email.text = client.email;
+      _active = client.isActive;
+      _photoUrl = client.photoUrl;
     });
   }
 
@@ -72,33 +70,32 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
     }
     setState(() => _busy = true);
     try {
-      final session = ref.read(sessionControllerProvider);
-      final clientId = session.isClient ? session.profile!.id : _clientId;
-      if (session.isAdmin && (clientId == null || clientId.isEmpty)) {
-        throw Exception('Select a client for this user');
-      }
       final repo = ref.read(profileRepositoryProvider);
       var photoUrl = _photoUrl;
       if (_isNew) {
         if (_email.text.trim().isEmpty || _password.text.length < 6) {
           throw Exception('Email and a password of 6+ characters are required');
         }
-        await repo.createUserViaFunction(
+        await repo.createClientViaFunction(
           email: _email.text.trim(),
           password: _password.text,
           name: _name.text.trim(),
           mobile: _mobile.text.trim(),
-          clientId: clientId,
         );
-        final created = (await repo.listUsers())
-            .where((u) => u.email.toLowerCase() == _email.text.trim().toLowerCase())
+        final created = (await repo.listClients())
+            .where((c) => c.email.toLowerCase() == _email.text.trim().toLowerCase())
             .firstOrNull;
         if (_photoFile != null && created != null) {
           photoUrl = await repo.uploadAvatar(created.id, _photoFile!);
-          await repo.updateProfile(id: created.id, name: _name.text.trim(), mobile: _mobile.text.trim(), photoUrl: photoUrl);
+          await repo.updateProfile(
+            id: created.id,
+            name: _name.text.trim(),
+            mobile: _mobile.text.trim(),
+            photoUrl: photoUrl,
+          );
         }
       } else {
-        final id = widget.userId!;
+        final id = widget.clientId!;
         if (_photoFile != null) {
           photoUrl = await repo.uploadAvatar(id, _photoFile!);
         }
@@ -107,11 +104,10 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
           name: _name.text.trim(),
           mobile: _mobile.text.trim(),
           photoUrl: photoUrl,
-          clientId: session.isAdmin ? clientId : null,
           isActive: _active,
         );
       }
-      ref.invalidate(fieldUsersProvider);
+      ref.invalidate(clientsProvider);
       ref.invalidate(adminStatsProvider);
       if (mounted) context.pop();
     } catch (error) {
@@ -125,8 +121,8 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete user?'),
-        content: const Text('This removes their login. You can also deactivate instead.'),
+        title: const Text('Delete client?'),
+        content: const Text('This removes their login and they can no longer manage users.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
@@ -136,18 +132,18 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
     if (ok != true) return;
     setState(() => _busy = true);
     try {
-      await ref.read(profileRepositoryProvider).deleteUserViaFunction(widget.userId!);
-      ref.invalidate(fieldUsersProvider);
+      await ref.read(profileRepositoryProvider).deleteUserViaFunction(widget.clientId!);
+      ref.invalidate(clientsProvider);
       if (mounted) context.pop();
     } catch (error) {
       try {
         await ref.read(profileRepositoryProvider).updateProfile(
-              id: widget.userId!,
+              id: widget.clientId!,
               name: _name.text.trim(),
               mobile: _mobile.text.trim(),
               isActive: false,
             );
-        ref.invalidate(fieldUsersProvider);
+        ref.invalidate(clientsProvider);
         if (!mounted) return;
         showAppSnack(context, 'Marked inactive (delete function unavailable).');
         context.pop();
@@ -161,13 +157,9 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(sessionControllerProvider);
-    final clients = [
-      if (session.isAdmin) ...?ref.watch(clientsProvider).valueOrNull,
-    ];
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isNew ? 'Add user' : 'Edit user'),
+        title: Text(_isNew ? 'Add client' : 'Edit client'),
         actions: [
           if (!_isNew)
             IconButton(onPressed: _busy ? null : _delete, icon: const Icon(Icons.delete_outline)),
@@ -212,22 +204,6 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
               obscureText: true,
             ),
           ],
-          if (session.isAdmin)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: DropdownButtonFormField<String>(
-                key: ValueKey(_clientId),
-                initialValue: clients.any((c) => c.id == _clientId) ? _clientId : null,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.business_center_outlined),
-                  labelText: 'Client',
-                ),
-                items: clients
-                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name.isEmpty ? c.email : c.name)))
-                    .toList(),
-                onChanged: (v) => setState(() => _clientId = v),
-              ),
-            ),
           if (!_isNew)
             SwitchListTile(
               title: const Text('Active'),

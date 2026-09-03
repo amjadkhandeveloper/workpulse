@@ -6,8 +6,12 @@ import '../supabase/app_config.dart';
 class CompanyRepository {
   SupabaseClient get _client => SupabaseProvider.client;
 
-  Future<List<Company>> list() async {
-    final rows = await _client.from('companies').select().order('name');
+  Future<List<Company>> list({String? clientId}) async {
+    var query = _client.from('companies').select();
+    if (clientId != null) {
+      query = query.eq('client_id', clientId);
+    }
+    final rows = await query.order('name');
     return (rows as List).map((e) => Company.fromMap(e as Map<String, dynamic>)).toList();
   }
 

@@ -8,6 +8,7 @@ class Profile {
     this.mobile,
     this.photoUrl,
     required this.role,
+    this.clientId,
     required this.isActive,
     required this.standbyStatus,
     this.lastLat,
@@ -22,6 +23,7 @@ class Profile {
   final String? mobile;
   final String? photoUrl;
   final UserRole role;
+  final String? clientId;
   final bool isActive;
   final StandbyStatus standbyStatus;
   final double? lastLat;
@@ -30,6 +32,8 @@ class Profile {
   final DateTime createdAt;
 
   bool get isAdmin => role == UserRole.admin;
+  bool get isClient => role == UserRole.client;
+  bool get isManager => isAdmin || isClient;
   bool get isOnStandby => standbyStatus == StandbyStatus.in_;
   bool get hasLocation => lastLat != null && lastLng != null;
 
@@ -41,6 +45,7 @@ class Profile {
       mobile: map['mobile'] as String?,
       photoUrl: map['photo_url'] as String?,
       role: UserRoleX.fromDb(map['role'] as String?),
+      clientId: map['client_id'] as String?,
       isActive: (map['is_active'] as bool?) ?? true,
       standbyStatus: StandbyStatusX.fromDb(map['standby_status'] as String?),
       lastLat: (map['last_lat'] as num?)?.toDouble(),
@@ -56,6 +61,7 @@ class Profile {
     String? name,
     String? mobile,
     String? photoUrl,
+    String? clientId,
     bool? isActive,
     StandbyStatus? standbyStatus,
     double? lastLat,
@@ -69,6 +75,7 @@ class Profile {
       mobile: mobile ?? this.mobile,
       photoUrl: photoUrl ?? this.photoUrl,
       role: role,
+      clientId: clientId ?? this.clientId,
       isActive: isActive ?? this.isActive,
       standbyStatus: standbyStatus ?? this.standbyStatus,
       lastLat: lastLat ?? this.lastLat,

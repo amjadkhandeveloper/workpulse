@@ -51,6 +51,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
             to: _to.add(const Duration(days: 1)),
             userId: _userId,
             companyId: _companyId,
+            clientId: ref.read(sessionControllerProvider).tenantClientId,
           );
       final attendance = await ref.read(attendanceRepositoryProvider).report(
             from: _from,

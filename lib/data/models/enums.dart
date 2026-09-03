@@ -1,4 +1,4 @@
-enum UserRole { admin, user }
+enum UserRole { admin, client, user }
 
 enum StandbyStatus { out, in_ }
 
@@ -21,9 +21,17 @@ enum AttendanceType { standbyIn, standbyOut }
 enum ProofKind { photo, signature }
 
 extension UserRoleX on UserRole {
-  String get db => this == UserRole.admin ? 'admin' : 'user';
-  static UserRole fromDb(String? value) =>
-      value == 'admin' ? UserRole.admin : UserRole.user;
+  String get db => switch (this) {
+        UserRole.admin => 'admin',
+        UserRole.client => 'client',
+        UserRole.user => 'user',
+      };
+
+  static UserRole fromDb(String? value) => switch (value) {
+        'admin' => UserRole.admin,
+        'client' => UserRole.client,
+        _ => UserRole.user,
+      };
 }
 
 extension StandbyStatusX on StandbyStatus {

@@ -7,57 +7,48 @@ import '../../../core/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_widgets.dart';
 
-class UsersScreen extends ConsumerWidget {
-  const UsersScreen({super.key});
+class ClientsScreen extends ConsumerWidget {
+  const ClientsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final users = ref.watch(fieldUsersProvider);
-    final isAdmin = ref.watch(sessionControllerProvider).isAdmin;
-    final clients = [
-      if (isAdmin) ...?ref.watch(clientsProvider).valueOrNull,
-    ];
-    final clientNames = {for (final c in clients) c.id: c.name};
+    final clients = ref.watch(clientsProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
-        onPressed: () => context.push('/admin/users/new'),
+        onPressed: () => context.push('/admin/clients/new'),
         child: const Icon(Icons.add, color: Colors.white),
       ),
-      body: users.when(
+      body: clients.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => EmptyView(message: '$e'),
         data: (items) {
-          if (items.isEmpty) return const EmptyView(message: 'No field users yet.');
+          if (items.isEmpty) return const EmptyView(message: 'No clients yet.');
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(fieldUsersProvider),
+            onRefresh: () async => ref.invalidate(clientsProvider),
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
-                final user = items[i];
+                final client = items[i];
                 return ListTile(
                   tileColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   leading: CircleAvatar(
                     backgroundColor: AppColors.primaryLight,
-                    backgroundImage: user.photoUrl != null
-                        ? CachedNetworkImageProvider(user.photoUrl!)
+                    backgroundImage: client.photoUrl != null
+                        ? CachedNetworkImageProvider(client.photoUrl!)
                         : null,
-                    child: user.photoUrl == null ? Text(user.name.isEmpty ? '?' : user.name[0]) : null,
+                    child: client.photoUrl == null
+                        ? Text(client.name.isEmpty ? '?' : client.name[0])
+                        : null,
                   ),
-                  title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(
-                    [
-                      user.mobile ?? 'No mobile',
-                      user.isActive ? 'Active' : 'Inactive',
-                      if (isAdmin) clientNames[user.clientId] ?? 'No client',
-                    ].join(' • '),
-                  ),
+                  title: Text(client.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text('${client.mobile ?? 'No mobile'} • ${client.email}'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/admin/users/${user.id}'),
+                  onTap: () => context.push('/admin/clients/${client.id}'),
                 );
               },
             ),

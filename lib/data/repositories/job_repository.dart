@@ -13,8 +13,12 @@ const _jobSelect =
 class JobRepository {
   SupabaseClient get _client => SupabaseProvider.client;
 
-  Future<List<Job>> listAll() async {
-    final rows = await _client.from('jobs').select(_jobSelect).order('created_at', ascending: false);
+  Future<List<Job>> listAll({String? clientId}) async {
+    var query = _client.from('jobs').select(_jobSelect);
+    if (clientId != null) {
+      query = query.eq('client_id', clientId);
+    }
+    final rows = await query.order('created_at', ascending: false);
     return (rows as List).map((e) => Job.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -104,8 +108,9 @@ class JobRepository {
     String? userId,
     String? companyId,
     String? status,
+    String? clientId,
   }) async {
-    final all = await listAll();
+    final all = await listAll(clientId: clientId);
     return all.where((job) {
       if (from != null && job.startAt.isBefore(from)) return false;
       if (to != null && job.startAt.isAfter(to)) return false;

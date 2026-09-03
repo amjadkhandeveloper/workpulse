@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 
 const _tabTitles = {
   '/admin': 'DASHBOARD',
+  '/admin/clients': 'CLIENTS',
   '/admin/users': 'USERS',
   '/admin/companies': 'COMPANIES',
   '/admin/jobs': 'JOBS',
@@ -36,14 +37,22 @@ class AdminShell extends ConsumerWidget {
             children: [
               UserAccountsDrawerHeader(
                 decoration: const BoxDecoration(color: AppColors.primary),
-                accountName: Text(profile?.name ?? 'Admin'),
-                accountEmail: Text(profile?.email ?? ''),
+                accountName: Text(profile?.name ?? 'Manager'),
+                accountEmail: Text(
+                  [
+                    if (profile?.isAdmin == true) 'Admin',
+                    if (profile?.isClient == true) 'Client',
+                    profile?.email ?? '',
+                  ].where((s) => s.isNotEmpty).join(' • '),
+                ),
                 currentAccountPicture: const CircleAvatar(
                   backgroundColor: Colors.white,
                   child: Icon(Icons.admin_panel_settings, color: AppColors.primary),
                 ),
               ),
               _item(context, Icons.dashboard_outlined, 'Dashboard', '/admin'),
+              if (profile?.isAdmin == true)
+                _item(context, Icons.business_center_outlined, 'Clients', '/admin/clients'),
               _item(context, Icons.people_outline, 'User management', '/admin/users'),
               _item(context, Icons.apartment_outlined, 'Companies', '/admin/companies'),
               _item(context, Icons.work_outline, 'Job management', '/admin/jobs'),

@@ -22,6 +22,7 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
   final _contact = TextEditingController();
   final _mobile = TextEditingController();
   bool _busy = false;
+  String? _clientId;
 
   bool get _isNew => widget.companyId == null;
 
@@ -41,6 +42,7 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
       _work.text = company.work ?? '';
       _contact.text = company.contactName ?? '';
       _mobile.text = company.mobile ?? '';
+      _clientId = company.clientId;
     });
   }
 
@@ -61,6 +63,11 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
     }
     setState(() => _busy = true);
     try {
+      final session = ref.read(sessionControllerProvider);
+      final clientId = session.isClient ? session.profile!.id : _clientId;
+      if (session.isAdmin && (clientId == null || clientId.isEmpty)) {
+        throw Exception('Select a client for this company');
+      }
       final repo = ref.read(companyRepositoryProvider);
       final data = {
         'name': _name.text.trim(),
@@ -68,6 +75,7 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
         'work': _work.text.trim(),
         'contact_name': _contact.text.trim(),
         'mobile': _mobile.text.trim(),
+        'client_id': ?clientId,
       };
       if (_isNew) {
         await repo.create(
@@ -78,6 +86,7 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
             work: _work.text.trim(),
             contactName: _contact.text.trim(),
             mobile: _mobile.text.trim(),
+            clientId: clientId,
             createdAt: DateTime.now(),
           ),
         );
@@ -113,6 +122,10 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(sessionControllerProvider);
+    final clients = [
+      if (session.isAdmin) ...?ref.watch(clientsProvider).valueOrNull,
+    ];
     return Scaffold(
       appBar: AppBar(
         title: Text(_isNew ? 'Add company' : 'Edit company'),
@@ -133,6 +146,22 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
             controller: _mobile,
             keyboardType: TextInputType.phone,
           ),
+          if (session.isAdmin)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: DropdownButtonFormField<String>(
+                key: ValueKey(_clientId),
+                initialValue: clients.any((c) => c.id == _clientId) ? _clientId : null,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.business_center_outlined),
+                  labelText: 'Client',
+                ),
+                items: clients
+                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name.isEmpty ? c.email : c.name)))
+                    .toList(),
+                onChanged: (v) => setState(() => _clientId = v),
+              ),
+            ),
           const SizedBox(height: 24),
           PrimaryButton(label: 'Save', onPressed: _save, busy: _busy),
         ],

@@ -71,12 +71,14 @@ class LeaveRepository {
     return (rows as List).map((e) => LeaveRequest.fromMap(e as Map<String, dynamic>)).toList();
   }
 
-  Future<List<LeaveRequest>> listAll() async {
+  Future<List<LeaveRequest>> listAll({Set<String>? userIds}) async {
     final rows = await _client
         .from('leaves')
         .select('*, profiles(name)')
         .order('created_at', ascending: false);
-    return (rows as List).map((e) => LeaveRequest.fromMap(e as Map<String, dynamic>)).toList();
+    final list = (rows as List).map((e) => LeaveRequest.fromMap(e as Map<String, dynamic>)).toList();
+    if (userIds == null) return list;
+    return list.where((leave) => userIds.contains(leave.userId)).toList();
   }
 
   Future<LeaveRequest> create({
@@ -134,12 +136,16 @@ class LocationRepository {
     });
   }
 
-  Future<List<Map<String, dynamic>>> latestByUser() async {
-    final rows = await _client
+  Future<List<Map<String, dynamic>>> latestByUser({String? clientId}) async {
+    var query = _client
         .from('profiles')
-        .select('id, name, last_lat, last_lng, last_location_at, standby_status, role')
+        .select('id, name, last_lat, last_lng, last_location_at, standby_status, role, client_id')
         .eq('role', 'user')
         .not('last_lat', 'is', null);
+    if (clientId != null) {
+      query = query.eq('client_id', clientId);
+    }
+    final rows = await query;
     return (rows as List).cast<Map<String, dynamic>>();
   }
 }
