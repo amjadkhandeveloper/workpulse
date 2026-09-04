@@ -21,7 +21,7 @@ class SetupScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Set SUPABASE_URL and SUPABASE_ANON_KEY in assets/config.env.example, then restart the app.\n\nRun supabase/schema.sql in the SQL editor and deploy supabase/functions/admin-users.',
+              'Set SUPABASE_URL and SUPABASE_ANON_KEY in assets/config.env, then restart the app.\n\nRun supabase/schema.sql, create Auth users, run supabase/run_insert_data.sql, then deploy supabase/functions/admin-users.',
               textAlign: TextAlign.center,
             ),
           ],

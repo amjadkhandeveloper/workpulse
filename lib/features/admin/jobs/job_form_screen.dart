@@ -102,7 +102,7 @@ class _JobFormScreenState extends ConsumerState<JobFormScreen> {
       final session = ref.read(sessionControllerProvider).profile;
       final users = ref.read(fieldUsersProvider).valueOrNull ?? [];
       final assignee = users.where((u) => u.id == _assignedTo).firstOrNull;
-      final clientId = session?.isClient == true ? session!.id : assignee?.clientId;
+      final clientId = session?.isClient == true ? session!.orgId : assignee?.clientId;
       var companyId = _companyId;
       if (_isNewCompany) {
         final created = await ref.read(companyRepositoryProvider).create(

@@ -44,6 +44,7 @@ class ProfileRepository {
     required String name,
     String? mobile,
     String? photoUrl,
+    String? username,
     String? clientId,
     bool? isActive,
   }) async {
@@ -52,6 +53,7 @@ class ProfileRepository {
       'mobile': mobile,
     };
     if (photoUrl != null) payload['photo_url'] = photoUrl;
+    if (username != null) payload['username'] = username;
     if (clientId != null) payload['client_id'] = clientId;
     if (isActive != null) payload['is_active'] = isActive;
     final row = await _client.from('profiles').update(payload).eq('id', id).select().single();
@@ -130,6 +132,7 @@ class ProfileRepository {
     required String email,
     required String password,
     required String name,
+    String? username,
     String? mobile,
     String? photoUrl,
     String? clientId,
@@ -141,6 +144,7 @@ class ProfileRepository {
         'email': email,
         'password': password,
         'name': name,
+        'username': username,
         'mobile': mobile,
         'photo_url': photoUrl,
         'client_id': ?clientId,
@@ -155,6 +159,7 @@ class ProfileRepository {
     required String email,
     required String password,
     required String name,
+    String? username,
     String? mobile,
     String? photoUrl,
   }) async {
@@ -165,6 +170,7 @@ class ProfileRepository {
         'email': email,
         'password': password,
         'name': name,
+        'username': username,
         'mobile': mobile,
         'photo_url': photoUrl,
       },

@@ -1,5 +1,15 @@
 import 'enums.dart';
 
+String? _nestedUserName(Map<String, dynamic> map) {
+  for (final key in ['users', 'profiles']) {
+    final nested = map[key];
+    if (nested is Map<String, dynamic>) {
+      return nested['name'] as String?;
+    }
+  }
+  return null;
+}
+
 class AttendanceRecord {
   const AttendanceRecord({
     required this.id,
@@ -20,11 +30,7 @@ class AttendanceRecord {
   final String? userName;
 
   factory AttendanceRecord.fromMap(Map<String, dynamic> map) {
-    String? userName;
-    final profile = map['profiles'];
-    if (profile is Map<String, dynamic>) {
-      userName = profile['name'] as String?;
-    }
+    String? userName = _nestedUserName(map);
     return AttendanceRecord(
       id: map['id'] as String,
       userId: map['user_id'] as String,
@@ -65,11 +71,7 @@ class LeaveRequest {
   int get dayCount => endDate.difference(startDate).inDays + 1;
 
   factory LeaveRequest.fromMap(Map<String, dynamic> map) {
-    String? userName;
-    final profile = map['profiles'];
-    if (profile is Map<String, dynamic>) {
-      userName = profile['name'] as String?;
-    }
+    String? userName = _nestedUserName(map);
     return LeaveRequest(
       id: map['id'] as String,
       userId: map['user_id'] as String,
@@ -109,11 +111,7 @@ class LocationPing {
   final String? userName;
 
   factory LocationPing.fromMap(Map<String, dynamic> map) {
-    String? userName;
-    final profile = map['profiles'];
-    if (profile is Map<String, dynamic>) {
-      userName = profile['name'] as String?;
-    }
+    String? userName = _nestedUserName(map);
     return LocationPing(
       id: map['id'] as String,
       userId: map['user_id'] as String,

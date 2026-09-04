@@ -12,7 +12,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_widgets.dart';
-import '../../../data/models/enums.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key, required this.jobId});
@@ -53,27 +52,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() => _busy = true);
     try {
       final repo = ref.read(jobRepositoryProvider);
+      final photoPaths = <String>[];
       for (var i = 0; i < _photos.length; i++) {
-        await repo.uploadProof(
-          jobId: widget.jobId,
-          file: _photos[i]!,
-          kind: ProofKind.photo,
-          sortOrder: i,
+        photoPaths.add(
+          await repo.uploadCheckoutFile(
+            jobId: widget.jobId,
+            file: _photos[i]!,
+            label: 'photo_$i',
+          ),
         );
       }
       final bytes = await _signature.toPngBytes(height: 400, width: 700);
       if (bytes == null) throw Exception('Could not capture signature');
       final sigFile = await _writeBytes(bytes);
-      await repo.uploadProof(
+      final signaturePath = await repo.uploadCheckoutFile(
         jobId: widget.jobId,
         file: sigFile,
-        kind: ProofKind.signature,
-        sortOrder: 99,
+        label: 'signature',
       );
-      await repo.setStatus(
-        widget.jobId,
-        JobStatus.pendingReview,
-        extra: {'checkout_note': _note.text.trim()},
+      await repo.submitCheckout(
+        jobId: widget.jobId,
+        note: _note.text.trim(),
+        signaturePath: signaturePath,
+        photoPaths: photoPaths,
       );
       final profile = ref.read(sessionControllerProvider).profile;
       if (profile != null) {

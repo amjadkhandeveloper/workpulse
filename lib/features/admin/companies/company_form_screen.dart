@@ -64,7 +64,7 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
     setState(() => _busy = true);
     try {
       final session = ref.read(sessionControllerProvider);
-      final clientId = session.isClient ? session.profile!.id : _clientId;
+      final clientId = session.isClient ? session.tenantClientId : _clientId;
       if (session.isAdmin && (clientId == null || clientId.isEmpty)) {
         throw Exception('Select a client for this company');
       }
@@ -151,13 +151,13 @@ class _CompanyFormScreenState extends ConsumerState<CompanyFormScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: DropdownButtonFormField<String>(
                 key: ValueKey(_clientId),
-                initialValue: clients.any((c) => c.id == _clientId) ? _clientId : null,
+                initialValue: clients.any((c) => c.orgId == _clientId) ? _clientId : null,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.business_center_outlined),
                   labelText: 'Client',
                 ),
                 items: clients
-                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name.isEmpty ? c.email : c.name)))
+                    .map((c) => DropdownMenuItem(value: c.orgId ?? c.id, child: Text(c.name.isEmpty ? c.email : c.name)))
                     .toList(),
                 onChanged: (v) => setState(() => _clientId = v),
               ),

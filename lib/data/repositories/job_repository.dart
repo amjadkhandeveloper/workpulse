@@ -65,37 +65,88 @@ class JobRepository {
   }
 
   Future<Job> setStatus(String id, JobStatus status, {Map<String, dynamic>? extra}) async {
-    return update(id, {
-      'status': status.db,
-      ...?extra,
+    if (status == JobStatus.completed) {
+      await _client.rpc('complete_job', params: {'p_job_id': id});
+      return getById(id);
+    }
+    if (status == JobStatus.pendingReview) {
+      throw Exception('Use submitCheckout for checkout');
+    }
+    await _client.rpc('transition_job_status', params: {
+      'p_job_id': id,
+      'p_to_status': status.db,
+      'p_note': extra?['checkout_note'],
+      'p_lat': extra?['lat'],
+      'p_lng': extra?['lng'],
     });
+    return getById(id);
+  }
+
+  Future<Job> completeJob(String id) async {
+    await _client.rpc('complete_job', params: {'p_job_id': id});
+    return getById(id);
   }
 
   Future<List<JobProof>> listProofs(String jobId) async {
-    final rows = await _client
-        .from('job_proofs')
+    final checkout = await _client.from('job_checkouts').select().eq('job_id', jobId).maybeSingle();
+    if (checkout == null) return [];
+
+    final photos = await _client
+        .from('job_checkout_photos')
         .select()
-        .eq('job_id', jobId)
+        .eq('checkout_id', checkout['id'])
         .order('sort_order');
-    return (rows as List).map((e) => JobProof.fromMap(e as Map<String, dynamic>)).toList();
+    final list = <JobProof>[];
+    for (final row in photos as List) {
+      final p = row as Map<String, dynamic>;
+      list.add(
+        JobProof(
+          id: p['id'] as String,
+          jobId: jobId,
+          kind: ProofKind.photo,
+          storagePath: p['storage_path'] as String,
+          sortOrder: (p['sort_order'] as num?)?.toInt() ?? 0,
+        ),
+      );
+    }
+    final sig = checkout['signature_path'] as String?;
+    if (sig != null && sig.isNotEmpty) {
+      list.add(
+        JobProof(
+          id: checkout['id'] as String,
+          jobId: jobId,
+          kind: ProofKind.signature,
+          storagePath: sig,
+          sortOrder: 99,
+        ),
+      );
+    }
+    return list;
   }
 
-  Future<String> uploadProof({
+  Future<String> uploadCheckoutFile({
     required String jobId,
     required File file,
-    required ProofKind kind,
-    required int sortOrder,
+    required String label,
   }) async {
     final ext = file.path.split('.').last.toLowerCase();
-    final path = '$jobId/${kind.name}_$sortOrder${const Uuid().v4()}.$ext';
+    final path = '$jobId/${label}_${const Uuid().v4()}.$ext';
     await _client.storage.from('job-proofs').upload(path, file);
-    await _client.from('job_proofs').insert({
-      'job_id': jobId,
-      'kind': kind == ProofKind.signature ? 'signature' : 'photo',
-      'storage_path': path,
-      'sort_order': sortOrder,
-    });
     return path;
+  }
+
+  Future<void> submitCheckout({
+    required String jobId,
+    String? note,
+    required String signaturePath,
+    required List<String> photoPaths,
+  }) async {
+    await _client.rpc('submit_job_checkout', params: {
+      'p_job_id': jobId,
+      'p_note': note,
+      'p_signature_path': signaturePath,
+      'p_photo_paths': photoPaths,
+    });
   }
 
   Future<String> signedProofUrl(String storagePath) async {

@@ -17,6 +17,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _busy = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -61,13 +62,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Sign in with the email and password created for your account',
+                  'Sign in with the username or email and password created for your account',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
                 IconUnderlineField(
-                  icon: Icons.email_outlined,
-                  label: 'Email',
+                  icon: Icons.person_outline,
+                  label: 'Username or email',
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
                 ),
@@ -75,7 +76,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   icon: Icons.lock_outline,
                   label: 'Password',
                   controller: _password,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
+                  suffix: IconButton(
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      color: Colors.grey.shade500,
+                    ),
+                    tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                  ),
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 12),

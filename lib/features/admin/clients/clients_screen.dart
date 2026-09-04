@@ -46,7 +46,7 @@ class ClientsScreen extends ConsumerWidget {
                         : null,
                   ),
                   title: Text(client.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text('${client.mobile ?? 'No mobile'} • ${client.email}'),
+                  subtitle: Text('${client.username ?? client.email} • ${client.mobile ?? 'No mobile'}'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/admin/clients/${client.id}'),
                 );

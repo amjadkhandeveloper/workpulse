@@ -118,34 +118,45 @@ class LeaveRepository {
 class LocationRepository {
   SupabaseClient get _client => SupabaseProvider.client;
 
-  Future<void> ping({
-    required String userId,
+  Future<void> updateLive({
     required double lat,
     required double lng,
     double? accuracy,
     required String context,
     String? jobId,
   }) async {
-    await _client.from('location_pings').insert({
-      'user_id': userId,
-      'lat': lat,
-      'lng': lng,
-      'accuracy': accuracy,
-      'context': context,
-      'job_id': jobId,
+    await _client.rpc('update_live_location', params: {
+      'p_lat': lat,
+      'p_lng': lng,
+      'p_accuracy': accuracy,
+      'p_context': context,
+      'p_job_id': jobId,
     });
   }
 
   Future<List<Map<String, dynamic>>> latestByUser({String? clientId}) async {
     var query = _client
-        .from('profiles')
-        .select('id, name, last_lat, last_lng, last_location_at, standby_status, role, client_id')
-        .eq('role', 'user')
-        .not('last_lat', 'is', null);
+        .from('user_live_locations')
+        .select(
+          'user_id, lat, lng, recorded_at, client_id, profiles!user_live_locations_user_id_fkey(name, standby_status, role)',
+        );
     if (clientId != null) {
       query = query.eq('client_id', clientId);
     }
     final rows = await query;
-    return (rows as List).cast<Map<String, dynamic>>();
+    return (rows as List).map((raw) {
+      final row = raw as Map<String, dynamic>;
+      final nested = row['profiles'];
+      final profile = nested is Map<String, dynamic> ? nested : null;
+      return {
+        'id': row['user_id'],
+        'name': profile?['name'],
+        'last_lat': row['lat'],
+        'last_lng': row['lng'],
+        'last_location_at': row['recorded_at'],
+        'standby_status': profile?['standby_status'],
+        'client_id': row['client_id'],
+      };
+    }).toList();
   }
 }

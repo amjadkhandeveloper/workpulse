@@ -22,6 +22,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   final _name = TextEditingController();
   final _mobile = TextEditingController();
   final _email = TextEditingController();
+  final _username = TextEditingController();
   final _password = TextEditingController();
   bool _active = true;
   bool _busy = false;
@@ -44,6 +45,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       _name.text = client.name;
       _mobile.text = client.mobile ?? '';
       _email.text = client.email;
+      _username.text = client.username ?? '';
       _active = client.isActive;
       _photoUrl = client.photoUrl;
     });
@@ -54,6 +56,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     _name.dispose();
     _mobile.dispose();
     _email.dispose();
+    _username.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -73,13 +76,14 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       final repo = ref.read(profileRepositoryProvider);
       var photoUrl = _photoUrl;
       if (_isNew) {
-        if (_email.text.trim().isEmpty || _password.text.length < 6) {
-          throw Exception('Email and a password of 6+ characters are required');
+        if (_email.text.trim().isEmpty || _username.text.trim().length < 2 || _password.text.length < 6) {
+          throw Exception('Username, email, and a password of 6+ characters are required');
         }
         await repo.createClientViaFunction(
           email: _email.text.trim(),
           password: _password.text,
           name: _name.text.trim(),
+          username: _username.text.trim(),
           mobile: _mobile.text.trim(),
         );
         final created = (await repo.listClients())
@@ -104,6 +108,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           name: _name.text.trim(),
           mobile: _mobile.text.trim(),
           photoUrl: photoUrl,
+          username: _username.text.trim().isEmpty ? null : _username.text.trim(),
           isActive: _active,
         );
       }
@@ -185,6 +190,11 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           ),
           IconUnderlineField(icon: Icons.person, label: 'Name', controller: _name, highlight: true),
           IconUnderlineField(
+            icon: Icons.badge_outlined,
+            label: 'Username',
+            controller: _username,
+          ),
+          IconUnderlineField(
             icon: Icons.smartphone,
             label: 'Mobile No',
             controller: _mobile,
@@ -199,7 +209,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
             ),
             IconUnderlineField(
               icon: Icons.lock_outline,
-              label: 'Temporary password',
+              label: 'Password (give this to the client)',
               controller: _password,
               obscureText: true,
             ),

@@ -25,10 +25,7 @@ final leaveRepositoryProvider = Provider((ref) => LeaveRepository());
 final locationRepositoryProvider = Provider((ref) => LocationRepository());
 
 final locationServiceProvider = Provider(
-  (ref) => LocationService(
-    ref.watch(profileRepositoryProvider),
-    ref.watch(locationRepositoryProvider),
-  ),
+  (ref) => LocationService(ref.watch(locationRepositoryProvider)),
 );
 
 enum SessionStatus { loading, misconfigured, needsIntro, unauthenticated, authenticated }
@@ -47,7 +44,7 @@ class SessionState {
   bool get isAdmin => profile?.isAdmin == true;
   bool get isClient => profile?.isClient == true;
   bool get isManager => profile?.isManager == true;
-  String? get tenantClientId => isClient ? profile?.id : null;
+  String? get tenantClientId => isClient ? profile?.orgId : null;
 }
 
 class SessionController extends StateNotifier<SessionState> {

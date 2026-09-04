@@ -22,6 +22,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
   final _name = TextEditingController();
   final _mobile = TextEditingController();
   final _email = TextEditingController();
+  final _username = TextEditingController();
   final _password = TextEditingController();
   bool _active = true;
   bool _busy = false;
@@ -45,6 +46,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
       _name.text = user.name;
       _mobile.text = user.mobile ?? '';
       _email.text = user.email;
+      _username.text = user.username ?? '';
       _active = user.isActive;
       _photoUrl = user.photoUrl;
       _clientId = user.clientId;
@@ -56,6 +58,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
     _name.dispose();
     _mobile.dispose();
     _email.dispose();
+    _username.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -73,20 +76,21 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
     setState(() => _busy = true);
     try {
       final session = ref.read(sessionControllerProvider);
-      final clientId = session.isClient ? session.profile!.id : _clientId;
+      final clientId = session.isClient ? session.tenantClientId : _clientId;
       if (session.isAdmin && (clientId == null || clientId.isEmpty)) {
         throw Exception('Select a client for this user');
       }
       final repo = ref.read(profileRepositoryProvider);
       var photoUrl = _photoUrl;
       if (_isNew) {
-        if (_email.text.trim().isEmpty || _password.text.length < 6) {
-          throw Exception('Email and a password of 6+ characters are required');
+        if (_email.text.trim().isEmpty || _username.text.trim().length < 2 || _password.text.length < 6) {
+          throw Exception('Username, email, and a password of 6+ characters are required');
         }
         await repo.createUserViaFunction(
           email: _email.text.trim(),
           password: _password.text,
           name: _name.text.trim(),
+          username: _username.text.trim(),
           mobile: _mobile.text.trim(),
           clientId: clientId,
         );
@@ -107,6 +111,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
           name: _name.text.trim(),
           mobile: _mobile.text.trim(),
           photoUrl: photoUrl,
+          username: _username.text.trim().isEmpty ? null : _username.text.trim(),
           clientId: session.isAdmin ? clientId : null,
           isActive: _active,
         );
@@ -193,6 +198,11 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
           ),
           IconUnderlineField(icon: Icons.person, label: 'Name', controller: _name, highlight: true),
           IconUnderlineField(
+            icon: Icons.badge_outlined,
+            label: 'Username',
+            controller: _username,
+          ),
+          IconUnderlineField(
             icon: Icons.smartphone,
             label: 'Mobile No',
             controller: _mobile,
@@ -207,7 +217,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
             ),
             IconUnderlineField(
               icon: Icons.lock_outline,
-              label: 'Temporary password',
+              label: 'Password (give this to the user)',
               controller: _password,
               obscureText: true,
             ),
@@ -217,13 +227,13 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: DropdownButtonFormField<String>(
                 key: ValueKey(_clientId),
-                initialValue: clients.any((c) => c.id == _clientId) ? _clientId : null,
+                initialValue: clients.any((c) => c.orgId == _clientId) ? _clientId : null,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.business_center_outlined),
                   labelText: 'Client',
                 ),
                 items: clients
-                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name.isEmpty ? c.email : c.name)))
+                    .map((c) => DropdownMenuItem(value: c.orgId ?? c.id, child: Text(c.name.isEmpty ? c.email : c.name)))
                     .toList(),
                 onChanged: (v) => setState(() => _clientId = v),
               ),

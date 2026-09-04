@@ -47,14 +47,7 @@ class _JobReviewScreenState extends ConsumerState<JobReviewScreen> {
   Future<void> _complete() async {
     setState(() => _busy = true);
     try {
-      await ref.read(jobRepositoryProvider).setStatus(
-            widget.jobId,
-            JobStatus.completed,
-            extra: {
-              'reviewed_by': ref.read(sessionControllerProvider).profile?.id,
-              'reviewed_at': DateTime.now().toUtc().toIso8601String(),
-            },
-          );
+      await ref.read(jobRepositoryProvider).completeJob(widget.jobId);
       ref.invalidate(adminJobsProvider);
       ref.invalidate(adminStatsProvider);
       if (mounted) context.pop();

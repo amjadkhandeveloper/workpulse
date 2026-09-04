@@ -11,7 +11,6 @@ import '../data/models/enums.dart';
 import '../data/models/job.dart';
 import '../data/models/profile.dart';
 import '../data/repositories/ops_repository.dart';
-import '../data/repositories/profile_repository.dart';
 
 class LocationFix {
   const LocationFix({
@@ -28,9 +27,8 @@ class LocationFix {
 }
 
 class LocationService {
-  LocationService(this._profiles, this._locations);
+  LocationService(this._locations);
 
-  final ProfileRepository _profiles;
   final LocationRepository _locations;
 
   StreamSubscription<Position>? _sub;
@@ -159,13 +157,7 @@ class LocationService {
     }
     _lastPingAt = now;
     try {
-      await _profiles.setLocation(
-        id: userId,
-        lat: position.latitude,
-        lng: position.longitude,
-      );
-      await _locations.ping(
-        userId: userId,
+      await _locations.updateLive(
         lat: position.latitude,
         lng: position.longitude,
         accuracy: position.accuracy,

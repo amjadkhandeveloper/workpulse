@@ -7,6 +7,7 @@ class Profile {
     required this.name,
     this.mobile,
     this.photoUrl,
+    this.username,
     required this.role,
     this.clientId,
     required this.isActive,
@@ -22,6 +23,7 @@ class Profile {
   final String name;
   final String? mobile;
   final String? photoUrl;
+  final String? username;
   final UserRole role;
   final String? clientId;
   final bool isActive;
@@ -37,6 +39,9 @@ class Profile {
   bool get isOnStandby => standbyStatus == StandbyStatus.in_;
   bool get hasLocation => lastLat != null && lastLng != null;
 
+  /// Tenant org id (`clients.id`). Client logins and field users share this.
+  String? get orgId => clientId ?? (isClient ? id : null);
+
   factory Profile.fromMap(Map<String, dynamic> map) {
     return Profile(
       id: map['id'] as String,
@@ -44,6 +49,7 @@ class Profile {
       name: (map['name'] as String?) ?? '',
       mobile: map['mobile'] as String?,
       photoUrl: map['photo_url'] as String?,
+      username: map['username'] as String?,
       role: UserRoleX.fromDb(map['role'] as String?),
       clientId: map['client_id'] as String?,
       isActive: (map['is_active'] as bool?) ?? true,
@@ -61,6 +67,7 @@ class Profile {
     String? name,
     String? mobile,
     String? photoUrl,
+    String? username,
     String? clientId,
     bool? isActive,
     StandbyStatus? standbyStatus,
@@ -74,6 +81,7 @@ class Profile {
       name: name ?? this.name,
       mobile: mobile ?? this.mobile,
       photoUrl: photoUrl ?? this.photoUrl,
+      username: username ?? this.username,
       role: role,
       clientId: clientId ?? this.clientId,
       isActive: isActive ?? this.isActive,

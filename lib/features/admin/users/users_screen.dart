@@ -17,7 +17,7 @@ class UsersScreen extends ConsumerWidget {
     final clients = [
       if (isAdmin) ...?ref.watch(clientsProvider).valueOrNull,
     ];
-    final clientNames = {for (final c in clients) c.id: c.name};
+    final clientNames = {for (final c in clients) c.orgId ?? c.id: c.name};
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
@@ -51,6 +51,7 @@ class UsersScreen extends ConsumerWidget {
                   title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text(
                     [
+                      user.username ?? user.email,
                       user.mobile ?? 'No mobile',
                       user.isActive ? 'Active' : 'Inactive',
                       if (isAdmin) clientNames[user.clientId] ?? 'No client',

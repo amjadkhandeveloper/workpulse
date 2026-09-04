@@ -1,0 +1,3 @@
+-- Deprecated.
+-- Use supabase/run_insert_data.sql instead (same Auth-first demo data).
+-- This file is intentionally empty so old bookmarks do not insert broken data.
